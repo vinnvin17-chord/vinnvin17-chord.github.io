@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Catatan Chord Lagu - Tema Anime</title>
+  <!-- Import Font Anime-Inspired -->
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: linear-gradient(135deg, #2d1b69 0%, #11998e 100%); /* Gradien ungu-biru anime */
+      --card: rgba(255, 255, 255, 0.1); /* Transparan dengan blur untuk efek glassmorphism */
+      --card-soft: rgba(255, 255, 255, 0.2);
+      --primary: #ff6b9d; /* Pink neon */
+      --secondary: #4ecdc4; /* Cyan anime */
+      --text: #ffffff; /* Putih cerah */
+      --muted: #b8c5d6; /* Abu-abu pastel */
+      --border: rgba(255, 255, 255, 0.3);
+      --shadow: rgba(255, 105, 157, 0.3); /* Glow pink */
+      --transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55); /* Bounce effect */
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      background: var(--bg);
+      background-image: url('https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80'); /* Gambar anime background (sakura/chibi - ganti dengan URL favoritmu) */
+      background-size: cover;
+      background-attachment: fixed;
+      background-position: center;
+      color: var(--text);
+      transition: var(--transition);
+      min-height: 100vh;
+      position: relative;
+    }
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.4); /* Overlay gelap agar teks readable */
+      z-index: -1;
+    }
+    h1 {
+      font-family: 'Fredoka One', cursive; /* Font anime kartun */
+      font-size: 24px;
+      font-weight: 600;
+      margin: 0;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-bottom: 2px solid var(--border);
+      box-shadow: 0 4px 12px var(--shadow);
+      text-shadow: 0 0 10px var(--primary);
+      border-radius: 20px 20px 0 0;
+    }
+    h2 {
+      font-family: 'Fredoka One', cursive;
+      font-size: 18px;
+      font-weight: 500;
+      margin: 20px 0 10px;
+      color: var(--primary);
+      text-shadow: 0 0 8px var(--primary);
+    }
+    button {
+      appearance: none;
+      border: none;
+      background: var(--card-soft);
+      backdrop-filter: blur(10px);
+      color: var(--text);
+      padding: 12px 16px;
+      border-radius: 25px; /* Lebih bulat untuk kesan anime */
+      font-size: 14px;
+      font-family: 'Fredoka One', cursive;
+      cursor: pointer;
+      transition: var(--transition);
+      box-shadow: 0 2px 8px var(--shadow);
+      border: 1px solid var(--border);
+    }
+    button:hover {
+      background: var(--primary);
+      transform: translateY(-3px) scale(1.05);
+      box-shadow: 0 4px 20px rgba(255, 107, 157, 0.6);
+    }
+    button:active {
+      transform: scale(0.95);
+    }
+    .hidden {
+      display: none;
+    }
+    .fade-in {
+      animation: fadeInBounce 0.6s ease-in-out;
+    }
+    @keyframes fadeInBounce {
+      0% { opacity: 0; transform: translateY(20px) scale(0.9); }
+      50% { opacity: 0.5; transform: translateY(-5px) scale(1.02); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* MODAL */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(5px);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal.show {
+      display: flex;
+    }
+    .modal-content {
+      background: var(--card);
+      backdrop-filter: blur(15px);
+      border-radius: 30px; /* Lebih bulat */
+      padding: 25px;
+      max-width: 90%;
+      max-height: 90%;
+      overflow-y: auto;
+      box-shadow: 0 10px 40px var(--shadow);
+      width: 100%;
+      border: 2px solid var(--border);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 28px;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .modal-close:hover {
+      color: var(--primary);
+      transform: rotate(90deg);
+    }
+
+    /* PAGE LIST */
+    #pageList {
+      padding: 20px;
+    }
+    .group {
+      margin-bottom: 30px;
+    }
+    .song-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      text-align: left;
+      margin-bottom: 15px;
+      padding: 18px 22px;
+      background: var(--card);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border);
+      font-size: 16px;
+      font-family: 'Fredoka One', cursive;
+      border-radius: 20px;
+      box-shadow: 0 4px 12px var(--shadow);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .song-item:hover {
+      background: var(--card-soft);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(255, 107, 157, 0.4);
+    }
+    .song-title {
+      flex: 1;
+    }
+    .menu-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 0;
+      margin-left: 10px;
+      transition: var(--transition);
+    }
+    .menu-btn:hover {
+      color: var(--primary);
+      transform: rotate(45deg);
+    }
+    .menu {
+      position: relative;
+      display: inline-block;
+    }
+    .menu-content {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 100%;
+      background: var(--card);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border);
+      border-radius: 15px;
+      box-shadow: 0 4px 12px var(--shadow);
+      z-index: 100;
+      min-width: 140px;
+    }
+    .menu-content button {
+      width: 100%;
+      text-align: left;
+      border-radius: 0;
+      margin: 0;
+      padding: 12px 16px;
+      font-family: 'Fredoka One', cursive;
+    }
+    .menu-content button:first-child {
+      border-radius: 15px 15px 0 0;
+    }
+    .menu-content button:last-child {
+      border-radius: 0 0 15px 15px;
+    }
+
+    /* EDITOR IN MODAL */
+    .editor-modal textarea {
+      width: 100%;
+      height: 300px;
+      background: var(--card);
+      backdrop-filter: blur(10px);
+      color: var(--text);
+      border: 2px solid var(--border);
+      border-radius: 20px;
+      padding: 18px;
+      font-size: 16px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      resize: vertical;
+      transition: var(--transition);
+      white-space: pre;
+    }
+    .editor-modal textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(255, 107, 157, 0.3);
+    }
+    .editor-modal .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    /* VIEWER */
+    .viewer {
+      background: var(--card);
+      backdrop-filter: blur(15px);
+      border: 2px solid var(--border);
+      border-radius: 25px;
+      padding: 25px;
+      margin-top: 16px;
+      line-height: 2;
+      box-shadow: 0 6px 20px var(--shadow);
+      overflow-x: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      white-space: pre;
+    }
+    .section {
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin: 20px 0 8px;
+      color: var(--text);
+      font-size: 14px;
+      text-shadow: 0 0 5px var(--primary);
+    }
+    .chord {
+      color: var(--primary);
+      font-weight: 600;
+      text-shadow: 0 0 8px var(--primary);
+    }
+
+    /* TOOLBAR */
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      gap: 10px;
+      padding: 15px 20px;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(15px);
+      border-bottom: 2px solid var(--border);
+      box-shadow: 0 4px 12px var(--shadow);
+      border-radius: 0 0 20px 20px;
+    }
+    .toolbar button {
+      font-size: 14px;
+      font-family: 'Fredoka One', cursive;
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      .modal-content {
+        max-width: 95%;
+        padding: 20px;
+      }
+      .toolbar {
+        padding: 12px 16px;
+        flex-wrap: wrap;
+      }
+      .viewer {
+        padding: 18px;
+        font-size: 14px;
+      }
+      h1 {
+        font-size: 20px;
+        padding: 16px 18px;
+      }
+      .song-item {
+        padding: 16px 18px;
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- PAGE 1 -->
+<div id="pageList" class="fade-in">
+  <h1>🎶 Daftar Lagu 🎶</h1>
+  <div style="text-align: right; margin-bottom: 20px;">
+    <button onclick="exportSongs()">⬇ Export</button>
+    <label for="importFile" style="margin-left: 10px;">
+      <button>📁 Import</button>
+    </label>
+    <input type="file" id="importFile" onchange="importSongs(event)" style="display: none;" />
+  </div>
+  <div class="group">
+    <h2>🌸 Ibadah Raya 1</h2>
+    <div id="songButtons1"></div>
+  </div>
+</div>
+
+<!-- PAGE 2 -->
+<div id="pageEditor" class="hidden fade-in">
+  <button onclick="backToList()">⬅ Kembali</button>
+  <h1 id="songTitle"></h1>
+
+  <div class="toolbar">
+    <button onclick="transpose(-1)">⭐ Transpose -</button>
+    <button onclick="transpose(1)">⭐ Transpose +</button>
+    <button onclick="zoom(1)">👁️ Zoom +</button>
+    <button onclick="zoom(-1)">👁️ Zoom -</button>
+  </div>
+
+  <div id="viewer" class="viewer"></div>
+</div>
+
+<!-- MODAL EDIT -->
+<div id="editModal" class="modal">
+  <div class="modal-content editor-modal">
+    <div class="modal-header">
+      <h1 id="editTitle"></h1>
+      <button class="modal-close" onclick="closeModal('editModal')">×</button>
+    </div>
+    <textarea id="editor" placeholder="Masukkan chord dan lirik di sini..."></textarea>
+    <div class="actions">
+      <button onclick="saveSong()">💾 Simpan</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+/* ================= FIREBASE ================= */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  collection,
+  onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAQkOLTNjw8At2BFqP7QZLDgFQj_2EPydM",
+  authDomain: "catatanchordjkimcc.firebaseapp.com",
+  projectId: "catatanchordjkimcc",
+  storageBucket: "catatanchordjkimcc.firebasestorage.app",
+  messagingSenderId: "833601237686",
+  appId: "1:833601237686:web:7225febab03f7e35072c17"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+/* ================= KONFIG ================= */
+const TOTAL_PER_GROUP = 10;
+const TOTAL_GROUP = 3;
+const TOTAL = TOTAL_PER_GROUP * TOTAL_GROUP;
+const KEYS = ['C','C#','D','D#','E','F','F#','G','G#','A','Bb','B'];
+
+/* ================= STATE ================= */
+let songs = Array(TOTAL).fill('');
+let titles = Array.from({ length: TOTAL }, (_, i) => `Lagu ${i % TOTAL_PER_GROUP + 1}`);
+
+let current = 0;
+let transposeStep = 0;
+let fontSize = 18;
+
+/* scroll */
+let lastScrollY = 0;
+
+/* swipe */
+let touchStartX = 0;
+let touchEndX = 0;
+let isAnimating = false;
+
+/* ================= FIRESTORE ================= */
+onSnapshot(collection(db, "songs"), snap => {
+  snap.forEach(d => {
+    const i = parseInt(d.id.replace("song_", ""));
+    if (!isNaN(i)) {
+      songs[i] = d.data().content || '';
+      titles[i] = d.data().title || titles[i];
+    }
+  });
+  init();
+});
+
+/* ================= INIT ================= */
+function init() {
+  renderGroup('songButtons1', 0, TOTAL_PER_GROUP);
+  renderGroup('songButtons2', TOTAL_PER_GROUP, TOTAL_PER_GROUP * 2);
+  renderGroup('songButtons3', TOTAL_PER_GROUP * 2, TOTAL_PER_GROUP * 3);
+}
+
+/* ================= LIST ================= */
+function renderGroup(containerId, start, end) {
+  const box = document.getElementById(containerId);
+  box.innerHTML = '';
+
+  for (let i = start; i < end; i++) {
+    const item = document.createElement('div');
+    item.className = 'song-item';
+    item.onclick = () => viewSong(i);
+
+    item.innerHTML = `
+      <span class="song-title">${titles[i]}</span>
+      <div class="menu">
+        <button class="menu-btn" onclick="event.stopPropagation(); toggleMenu(${i})">⋮</button>
+        <div id="menu-${i}" class="menu-content">
+          <button onclick="event.stopPropagation(); editTitle(${i})">Edit Judul</button>
+          <button onclick="event.stopPropagation(); editSong(${i})">Edit Lagu</button>
+        </div>
+      </div>
+    `;
+    box.appendChild(item);
+  }
+}
+
+function toggleMenu(i) {
+  document.querySelectorAll('.menu-content').forEach(m => m.style.display = 'none');
+  document.getElementById(`menu-${i}`).style.display = 'block';
+}
+
+/* ================= VIEW ================= */
+function viewSong(i) {
+  lastScrollY = window.scrollY;
+
+  current = i;
+  transposeStep = 0;
+
+  document.getElementById('pageList').classList.add('hidden');
+  document.getElementById('pageEditor').classList.remove('hidden');
+
+  animateSongChange(0);
+}
+
+/* ================= BACK ================= */
+function backToList() {
+  document.getElementById('pageEditor').classList.add('hidden');
+  document.getElementById('pageList').classList.remove('hidden');
+
+  requestAnimationFrame(() => {
+    window.scrollTo(0, lastScrollY);
+  });
+}
+
+/* ================= EDIT ================= */
+async function editTitle(i) {
+  const t = prompt('Judul lagu:', titles[i]);
+  if (!t) return;
+
+  titles[i] = t;
+  await setDoc(doc(db, "songs", `song_${i}`), {
+    title: t,
+    content: songs[i] || ''
+  }, { merge: true });
+
+  init();
+}
+
+function editSong(i) {
+  current = i;
+  document.getElementById('editTitle').innerText = titles[i];
+  document.getElementById('editor').value = songs[i];
+  document.getElementById('editModal').classList.add('show');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
+}
+
+async function saveSong() {
+  await setDoc(doc(db, "songs", `song_${current}`), {
+    title: titles[current],
+    content: document.getElementById('editor').value
+  });
+  closeModal('editModal');
+}
+
+/* ================= TOOLS ================= */
+function transpose(step) {
+  transposeStep += step;
+  render();
+}
+
+function zoom(step) {
+  fontSize = Math.min(34, Math.max(12, fontSize + step));
+  render();
+}
+
+function transposeChord(ch) {
+  const base = ch.match(/^[A-G][#b]?/);
+  if (!base) return ch;
+
+  const i = KEYS.indexOf(base[0]);
+  if (i < 0) return ch;
+
+  return ch.replace(base[0],
+    KEYS[(i + transposeStep + KEYS.length) % KEYS.length]
+  );
+}
+
+/* ================= RENDER ================= */
+function render() {
+  const viewer = document.getElementById('viewer');
+  viewer.style.fontSize = fontSize + 'px';
+
+  const chordRegex =
+    /(?<!\S)([A-G](?:#|b)?(?:m|maj|min|sus|dim|aug|add)?\d*(?:\/[A-G](?:#|b)?\d*)?)(?!\S)/g;
+
+  viewer.innerHTML = (songs[current] || '')
+    .split('\n')
+    .map(line => {
+      if (/^.+\s:\s*$/.test(line)) {
+        return `<div class="section">${line}</div>`;
+      }
+      return line.replace(chordRegex, c =>
+        `<span class="chord">${transposeChord(c)}</span>`
+      );
+    })
+    .join('<br>');
+
+  document.getElementById('songTitle').innerText = titles[current];
+}
+
+/* ================= SLIDE ANIMATION ================= */
+function animateSongChange(direction) {
+  if (isAnimating) return;
+  isAnimating = true;
+
+  const viewer = document.getElementById('viewer');
+  const title = document.getElementById('songTitle');
+
+  viewer.style.transition = 'none';
+  title.style.transition = 'none';
+
+  viewer.style.transform = `translateX(${direction * 40}px)`;
+  title.style.transform = `translateX(${direction * 40}px)`;
+
+  render();
+
+  requestAnimationFrame(() => {
+    viewer.style.transition = 'transform 0.35s ease, opacity 0.35s ease';
+    title.style.transition = 'transform 0.35s ease, opacity 0.35s ease';
+
+    viewer.style.transform = 'translateX(0)';
+    title.style.transform = 'translateX(0)';
+    viewer.style.opacity = '1';
+    title.style.opacity = '1';
+
+    setTimeout(() => isAnimating = false, 350);
+  });
+
+  window.scrollTo(0, 0);
+}
+
+/* ================= NEXT / PREV ================= */
+function nextSong() {
+  if (current < TOTAL - 1) {
+    current++;
+    transposeStep = 0;
+    animateSongChange(-1);
+  }
+}
+
+function prevSong() {
+  if (current > 0) {
+    current--;
+    transposeStep = 0;
+    animateSongChange(1);
+  }
+}
+
+/* ================= SWIPE ================= */
+const editorPage = document.getElementById('pageEditor');
+
+editorPage.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) {
+    touchStartX = e.touches[0].clientX;
+  }
+});
+
+editorPage.addEventListener('touchend', e => {
+  touchEndX = e.changedTouches[0].clientX;
+  const diff = touchStartX - touchEndX;
+  const threshold = 70;
+
+  if (Math.abs(diff) < threshold) return;
+
+  diff > 0 ? nextSong() : prevSong();
+});
+
+/* ================= GLOBAL ================= */
+window.transpose = transpose;
+window.zoom = zoom;
+window.backToList = backToList;
+window.viewSong = viewSong;
+window.editSong = editSong;
+window.toggleMenu = toggleMenu;
+window.closeModal = closeModal;
+window.saveSong = saveSong;
+window.editTitle = editTitle;
+</script>
+
+</body>
+</html>
