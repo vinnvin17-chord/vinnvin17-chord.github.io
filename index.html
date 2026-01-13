@@ -386,34 +386,39 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
   getFirestore,
-  collection,
   doc,
-  addDoc,
-  updateDoc,
-  deleteDoc,
+  setDoc,
+  collection,
   onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyC1pwhv_VtD1Zkc61kBntnBZWlCLeFSod0",
-  authDomain: "catatan-chord-7fa25.firebaseapp.com",
-  projectId: "catatan-chord-7fa25",
-  storageBucket: "catatan-chord-7fa25.firebasestorage.app",
-  messagingSenderId: "559468614740",
-  appId: "1:559468614740:web:dd6f9b99e314037524c9c1"
+  apiKey: "AIzaSyAQkOLTNjw8At2BFqP7QZLDgFQj_2EPydM",
+  authDomain: "catatanchordjkimcc.firebaseapp.com",
+  projectId: "catatanchordjkimcc",
+  storageBucket: "catatanchordjkimcc.firebasestorage.app",
+  messagingSenderId: "833601237686",
+  appId: "1:833601237686:web:7225febab03f7e35072c17"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 /* ================= KONFIG ================= */
+const TOTAL_PER_GROUP = 10;
+const TOTAL_GROUP = 1; // Hanya satu grup (JCC)
+const TOTAL = TOTAL_PER_GROUP * TOTAL_GROUP;
 const KEYS = ['C','C#','D','D#','E','F','F#','G','G#','A','Bb','B'];
 
 /* ================= STATE ================= */
-let songs = [];              // {id,title,content}
-let currentIndex = 0;
+let songs = Array(TOTAL).fill('');
+let titles = Array.from({ length: TOTAL }, (_, i) => `Lagu ${i % TOTAL_PER_GROUP + 1}`);
+
+let current = 0;
 let transposeStep = 0;
 let fontSize = 18;
+
+/* scroll */
 let lastScrollY = 0;
 
 /* swipe */
@@ -423,45 +428,43 @@ let isAnimating = false;
 
 /* ================= FIRESTORE ================= */
 onSnapshot(collection(db, "songs"), snap => {
-  songs = [];
   snap.forEach(d => {
-    songs.push({
-      id: d.id,
-      title: d.data().title || 'Tanpa Judul',
-      content: d.data().content || ''
-    });
+    const i = parseInt(d.id.replace("song_", ""));
+    if (!isNaN(i)) {
+      songs[i] = d.data().content || '';
+      titles[i] = d.data().title || titles[i];
+    }
   });
   init();
 });
 
 /* ================= INIT ================= */
 function init() {
-  renderList();
+  renderGroup('songButtons1', 0, TOTAL_PER_GROUP);
 }
 
 /* ================= LIST ================= */
-function renderList() {
-  const box = document.getElementById('songButtons1');
+function renderGroup(containerId, start, end) {
+  const box = document.getElementById(containerId);
   box.innerHTML = '';
 
-  songs.forEach((song, i) => {
+  for (let i = start; i < end; i++) {
     const item = document.createElement('div');
     item.className = 'song-item';
     item.onclick = () => viewSong(i);
 
     item.innerHTML = `
-      <span class="song-title">${song.title}</span>
+      <span class="song-title">${titles[i]}</span>
       <div class="menu">
         <button class="menu-btn" onclick="event.stopPropagation(); toggleMenu(${i})">⋮</button>
         <div id="menu-${i}" class="menu-content">
           <button onclick="event.stopPropagation(); editTitle(${i})">Edit Judul</button>
           <button onclick="event.stopPropagation(); editSong(${i})">Edit Lagu</button>
-          <button onclick="event.stopPropagation(); deleteSong(${i})">Hapus</button>
         </div>
       </div>
     `;
     box.appendChild(item);
-  });
+  }
 }
 
 function toggleMenu(i) {
@@ -472,7 +475,8 @@ function toggleMenu(i) {
 /* ================= VIEW ================= */
 function viewSong(i) {
   lastScrollY = window.scrollY;
-  currentIndex = i;
+
+  current = i;
   transposeStep = 0;
 
   document.getElementById('pageList').classList.add('hidden');
@@ -485,56 +489,46 @@ function viewSong(i) {
 function backToList() {
   document.getElementById('pageEditor').classList.add('hidden');
   document.getElementById('pageList').classList.remove('hidden');
-  requestAnimationFrame(() => window.scrollTo(0, lastScrollY));
+
+  requestAnimationFrame(() => {
+    window.scrollTo(0, lastScrollY);
+  });
 }
 
 /* ================= EDIT ================= */
 async function editTitle(i) {
-  const t = prompt('Judul lagu:', songs[i].title);
+  const t = prompt('Judul lagu:', titles[i]);
   if (!t) return;
 
-  songs[i].title = t;
-  await updateDoc(doc(db, "songs", songs[i].id), { title: t });
+  titles[i] = t;
+  await setDoc(doc(db, "songs", `song_${i}`), {
+    title: t,
+    content: songs[i] || ''
+  }, { merge: true });
+
   init();
 }
 
 function editSong(i) {
-  currentIndex = i;
-  document.getElementById('editTitle').innerText = songs[i].title;
-  document.getElementById('editor').value = songs[i].content;
+  current = i;
+  document.getElementById('editTitle').innerText = titles[i];
+  document.getElementById('editor').value = songs[i];
   document.getElementById('editModal').classList.add('show');
-  document.body.classList.add('modal-open');
+  document.body.classList.add('modal-open'); // Cegah scroll
 }
 
 function closeModal(id) {
   document.getElementById(id).classList.remove('show');
-  document.body.classList.remove('modal-open');
+  document.body.classList.remove('modal-open'); // Kembalikan scroll
 }
 
 async function saveSong() {
-  const text = document.getElementById('editor').value;
-  songs[currentIndex].content = text;
-
-  await updateDoc(doc(db, "songs", songs[currentIndex].id), {
-    content: text
+  await setDoc(doc(db, "songs", `song_${current}`), {
+    title: titles[current],
+    content: document.getElementById('editor').value
   });
-
   closeModal('editModal');
-  render();
-}
-
-/* ================= ADD / DELETE ================= */
-async function addSong() {
-  await addDoc(collection(db, "songs"), {
-    title: "Lagu Baru",
-    content: "",
-    createdAt: Date.now()
-  });
-}
-
-async function deleteSong(i) {
-  if (!confirm('Hapus lagu ini?')) return;
-  await deleteDoc(doc(db, "songs", songs[i].id));
+  init(); // Refresh list
 }
 
 /* ================= TOOLS ================= */
@@ -551,9 +545,13 @@ function zoom(step) {
 function transposeChord(ch) {
   const base = ch.match(/^[A-G][#b]?/);
   if (!base) return ch;
+
   const i = KEYS.indexOf(base[0]);
   if (i < 0) return ch;
-  return ch.replace(base[0], KEYS[(i + transposeStep + KEYS.length) % KEYS.length]);
+
+  return ch.replace(base[0],
+    KEYS[(i + transposeStep + KEYS.length) % KEYS.length]
+  );
 }
 
 /* ================= RENDER ================= */
@@ -561,9 +559,10 @@ function render() {
   const viewer = document.getElementById('viewer');
   viewer.style.fontSize = fontSize + 'px';
 
-  const chordRegex = /(?<!\S)([A-G](?:#|b)?(?:m|maj|min|sus|dim|aug|add)?\d*(?:\/[A-G](?:#|b)?\d*)?)(?!\S)/g;
+  const chordRegex =
+    /(?<!\S)([A-G](?:#|b)?(?:m|maj|min|sus|dim|aug|add)?\d*(?:\/[A-G](?:#|b)?\d*)?)(?!\S)/g;
 
-  viewer.innerHTML = (songs[currentIndex]?.content || '')
+  viewer.innerHTML = (songs[current] || '')
     .split('\n')
     .map(line => {
       if (/^.+\s:\s*$/.test(line)) {
@@ -572,12 +571,13 @@ function render() {
       return line.replace(chordRegex, c =>
         `<span class="chord">${transposeChord(c)}</span>`
       );
-    }).join('<br>');
+    })
+    .join('<br>');
 
-  document.getElementById('songTitle').innerText = songs[currentIndex]?.title || '';
+  document.getElementById('songTitle').innerText = titles[current];
 }
 
-/* ================= ANIMATION ================= */
+/* ================= SLIDE ANIMATION ================= */
 function animateSongChange(direction) {
   if (isAnimating) return;
   isAnimating = true;
@@ -585,16 +585,23 @@ function animateSongChange(direction) {
   const viewer = document.getElementById('viewer');
   const title = document.getElementById('songTitle');
 
+  viewer.style.transition = 'none';
+  title.style.transition = 'none';
+
   viewer.style.transform = `translateX(${direction * 40}px)`;
   title.style.transform = `translateX(${direction * 40}px)`;
 
   render();
 
   requestAnimationFrame(() => {
-    viewer.style.transition = 'transform 0.35s ease';
-    title.style.transition = 'transform 0.35s ease';
+    viewer.style.transition = 'transform 0.35s ease, opacity 0.35s ease';
+    title.style.transition = 'transform 0.35s ease, opacity 0.35s ease';
+
     viewer.style.transform = 'translateX(0)';
     title.style.transform = 'translateX(0)';
+    viewer.style.opacity = '1';
+    title.style.opacity = '1';
+
     setTimeout(() => isAnimating = false, 350);
   });
 
@@ -603,16 +610,16 @@ function animateSongChange(direction) {
 
 /* ================= NEXT / PREV ================= */
 function nextSong() {
-  if (currentIndex < songs.length - 1) {
-    currentIndex++;
+  if (current < TOTAL - 1) {
+    current++;
     transposeStep = 0;
     animateSongChange(-1);
   }
 }
 
 function prevSong() {
-  if (currentIndex > 0) {
-    currentIndex--;
+  if (current > 0) {
+    current--;
     transposeStep = 0;
     animateSongChange(1);
   }
@@ -620,17 +627,66 @@ function prevSong() {
 
 /* ================= SWIPE ================= */
 const editorPage = document.getElementById('pageEditor');
+
 editorPage.addEventListener('touchstart', e => {
-  if (e.touches.length === 1) touchStartX = e.touches[0].clientX;
+  if (e.touches.length === 1) {
+    touchStartX = e.touches[0].clientX;
+  }
 });
+
 editorPage.addEventListener('touchend', e => {
   touchEndX = e.changedTouches[0].clientX;
   const diff = touchStartX - touchEndX;
-  if (Math.abs(diff) < 70) return;
+  const threshold = 70;
+
+  if (Math.abs(diff) < threshold) return;
+
   diff > 0 ? nextSong() : prevSong();
 });
 
-/* ================= EXPORT ================= */
+/* ================= EXPORT / IMPORT ================= */
+function exportSongs() {
+  const data = { songs, titles };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'songs_backup.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importSongs(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.songs && data.titles) {
+        songs = data.songs;
+        titles = data.titles;
+        // Update Firestore
+        for (let i = 0; i < TOTAL; i++) {
+          await setDoc(doc(db, "songs", `song_${i}`), {
+            title: titles[i],
+            content: songs[i]
+          });
+        }
+        init();
+        alert('Data berhasil diimpor!');
+      } else {
+        alert('File tidak valid.');
+      }
+    } catch (err) {
+      alert('Error parsing file: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* ================= GLOBAL ================= */
 window.transpose = transpose;
 window.zoom = zoom;
 window.backToList = backToList;
@@ -640,7 +696,8 @@ window.toggleMenu = toggleMenu;
 window.closeModal = closeModal;
 window.saveSong = saveSong;
 window.editTitle = editTitle;
-window.addSong = addSong;
+window.exportSongs = exportSongs;
+window.importSongs = importSongs;
 </script>
 
 
