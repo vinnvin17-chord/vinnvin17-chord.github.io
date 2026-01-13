@@ -382,25 +382,18 @@
 </div>
 
 <script type="module">
-/* ===============================
-   IMPORT FIREBASE (CDN)
-================================ */
+/* ================= FIREBASE ================= */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
   getFirestore,
   collection,
-  addDoc,
-  getDocs,
   doc,
+  addDoc,
   updateDoc,
   deleteDoc,
-  query,
-  orderBy
+  onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-/* ===============================
-   FIREBASE CONFIG
-================================ */
 const firebaseConfig = {
   apiKey: "AIzaSyC1pwhv_VtD1Zkc61kBntnBZWlCLeFSod0",
   authDomain: "catatan-chord-7fa25.firebaseapp.com",
@@ -410,75 +403,246 @@ const firebaseConfig = {
   appId: "1:559468614740:web:dd6f9b99e314037524c9c1"
 };
 
-/* ===============================
-   INIT APP & DATABASE
-================================ */
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-/* ===============================
-   COLLECTION
-================================ */
-const chordRef = collection(db, "chords");
+/* ================= KONFIG ================= */
+const KEYS = ['C','C#','D','D#','E','F','F#','G','G#','A','Bb','B'];
 
-/* ===============================
-   CREATE / SAVE CHORD
-================================ */
-async function saveChord(title, content) {
-  await addDoc(chordRef, {
-    title: title,
-    content: content,
+/* ================= STATE ================= */
+let songs = [];              // {id,title,content}
+let currentIndex = 0;
+let transposeStep = 0;
+let fontSize = 18;
+let lastScrollY = 0;
+
+/* swipe */
+let touchStartX = 0;
+let touchEndX = 0;
+let isAnimating = false;
+
+/* ================= FIRESTORE ================= */
+onSnapshot(collection(db, "songs"), snap => {
+  songs = [];
+  snap.forEach(d => {
+    songs.push({
+      id: d.id,
+      title: d.data().title || 'Tanpa Judul',
+      content: d.data().content || ''
+    });
+  });
+  init();
+});
+
+/* ================= INIT ================= */
+function init() {
+  renderList();
+}
+
+/* ================= LIST ================= */
+function renderList() {
+  const box = document.getElementById('songButtons1');
+  box.innerHTML = '';
+
+  songs.forEach((song, i) => {
+    const item = document.createElement('div');
+    item.className = 'song-item';
+    item.onclick = () => viewSong(i);
+
+    item.innerHTML = `
+      <span class="song-title">${song.title}</span>
+      <div class="menu">
+        <button class="menu-btn" onclick="event.stopPropagation(); toggleMenu(${i})">⋮</button>
+        <div id="menu-${i}" class="menu-content">
+          <button onclick="event.stopPropagation(); editTitle(${i})">Edit Judul</button>
+          <button onclick="event.stopPropagation(); editSong(${i})">Edit Lagu</button>
+          <button onclick="event.stopPropagation(); deleteSong(${i})">Hapus</button>
+        </div>
+      </div>
+    `;
+    box.appendChild(item);
+  });
+}
+
+function toggleMenu(i) {
+  document.querySelectorAll('.menu-content').forEach(m => m.style.display = 'none');
+  document.getElementById(`menu-${i}`).style.display = 'block';
+}
+
+/* ================= VIEW ================= */
+function viewSong(i) {
+  lastScrollY = window.scrollY;
+  currentIndex = i;
+  transposeStep = 0;
+
+  document.getElementById('pageList').classList.add('hidden');
+  document.getElementById('pageEditor').classList.remove('hidden');
+
+  animateSongChange(0);
+}
+
+/* ================= BACK ================= */
+function backToList() {
+  document.getElementById('pageEditor').classList.add('hidden');
+  document.getElementById('pageList').classList.remove('hidden');
+  requestAnimationFrame(() => window.scrollTo(0, lastScrollY));
+}
+
+/* ================= EDIT ================= */
+async function editTitle(i) {
+  const t = prompt('Judul lagu:', songs[i].title);
+  if (!t) return;
+
+  songs[i].title = t;
+  await updateDoc(doc(db, "songs", songs[i].id), { title: t });
+  init();
+}
+
+function editSong(i) {
+  currentIndex = i;
+  document.getElementById('editTitle').innerText = songs[i].title;
+  document.getElementById('editor').value = songs[i].content;
+  document.getElementById('editModal').classList.add('show');
+  document.body.classList.add('modal-open');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
+  document.body.classList.remove('modal-open');
+}
+
+async function saveSong() {
+  const text = document.getElementById('editor').value;
+  songs[currentIndex].content = text;
+
+  await updateDoc(doc(db, "songs", songs[currentIndex].id), {
+    content: text
+  });
+
+  closeModal('editModal');
+  render();
+}
+
+/* ================= ADD / DELETE ================= */
+async function addSong() {
+  await addDoc(collection(db, "songs"), {
+    title: "Lagu Baru",
+    content: "",
     createdAt: Date.now()
   });
 }
 
-/* ===============================
-   GET ALL CHORDS
-================================ */
-async function loadChords() {
-  const q = query(chordRef, orderBy("createdAt", "desc"));
-  const snapshot = await getDocs(q);
+async function deleteSong(i) {
+  if (!confirm('Hapus lagu ini?')) return;
+  await deleteDoc(doc(db, "songs", songs[i].id));
+}
 
-  const data = [];
-  snapshot.forEach(doc => {
-    data.push({
-      id: doc.id,
-      ...doc.data()
-    });
+/* ================= TOOLS ================= */
+function transpose(step) {
+  transposeStep += step;
+  render();
+}
+
+function zoom(step) {
+  fontSize = Math.min(34, Math.max(12, fontSize + step));
+  render();
+}
+
+function transposeChord(ch) {
+  const base = ch.match(/^[A-G][#b]?/);
+  if (!base) return ch;
+  const i = KEYS.indexOf(base[0]);
+  if (i < 0) return ch;
+  return ch.replace(base[0], KEYS[(i + transposeStep + KEYS.length) % KEYS.length]);
+}
+
+/* ================= RENDER ================= */
+function render() {
+  const viewer = document.getElementById('viewer');
+  viewer.style.fontSize = fontSize + 'px';
+
+  const chordRegex = /(?<!\S)([A-G](?:#|b)?(?:m|maj|min|sus|dim|aug|add)?\d*(?:\/[A-G](?:#|b)?\d*)?)(?!\S)/g;
+
+  viewer.innerHTML = (songs[currentIndex]?.content || '')
+    .split('\n')
+    .map(line => {
+      if (/^.+\s:\s*$/.test(line)) {
+        return `<div class="section">${line}</div>`;
+      }
+      return line.replace(chordRegex, c =>
+        `<span class="chord">${transposeChord(c)}</span>`
+      );
+    }).join('<br>');
+
+  document.getElementById('songTitle').innerText = songs[currentIndex]?.title || '';
+}
+
+/* ================= ANIMATION ================= */
+function animateSongChange(direction) {
+  if (isAnimating) return;
+  isAnimating = true;
+
+  const viewer = document.getElementById('viewer');
+  const title = document.getElementById('songTitle');
+
+  viewer.style.transform = `translateX(${direction * 40}px)`;
+  title.style.transform = `translateX(${direction * 40}px)`;
+
+  render();
+
+  requestAnimationFrame(() => {
+    viewer.style.transition = 'transform 0.35s ease';
+    title.style.transition = 'transform 0.35s ease';
+    viewer.style.transform = 'translateX(0)';
+    title.style.transform = 'translateX(0)';
+    setTimeout(() => isAnimating = false, 350);
   });
 
-  return data;
+  window.scrollTo(0, 0);
 }
 
-/* ===============================
-   UPDATE CHORD
-================================ */
-async function updateChord(id, title, content) {
-  const chordDoc = doc(db, "chords", id);
-  await updateDoc(chordDoc, {
-    title: title,
-    content: content
-  });
+/* ================= NEXT / PREV ================= */
+function nextSong() {
+  if (currentIndex < songs.length - 1) {
+    currentIndex++;
+    transposeStep = 0;
+    animateSongChange(-1);
+  }
 }
 
-/* ===============================
-   DELETE CHORD
-================================ */
-async function deleteChord(id) {
-  await deleteDoc(doc(db, "chords", id));
+function prevSong() {
+  if (currentIndex > 0) {
+    currentIndex--;
+    transposeStep = 0;
+    animateSongChange(1);
+  }
 }
 
-/* ===============================
-   EXPORT KE WINDOW
-   (BIAR BISA DIPANGGIL HTML)
-================================ */
-window.saveChord = saveChord;
-window.loadChords = loadChords;
-window.updateChord = updateChord;
-window.deleteChord = deleteChord;
+/* ================= SWIPE ================= */
+const editorPage = document.getElementById('pageEditor');
+editorPage.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) touchStartX = e.touches[0].clientX;
+});
+editorPage.addEventListener('touchend', e => {
+  touchEndX = e.changedTouches[0].clientX;
+  const diff = touchStartX - touchEndX;
+  if (Math.abs(diff) < 70) return;
+  diff > 0 ? nextSong() : prevSong();
+});
 
-console.log("🔥 Firebase siap dipakai");
+/* ================= EXPORT ================= */
+window.transpose = transpose;
+window.zoom = zoom;
+window.backToList = backToList;
+window.viewSong = viewSong;
+window.editSong = editSong;
+window.toggleMenu = toggleMenu;
+window.closeModal = closeModal;
+window.saveSong = saveSong;
+window.editTitle = editTitle;
+window.addSong = addSong;
 </script>
+
 
 </body>
 </html>
