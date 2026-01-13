@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Catatan Chord Lagu - Tema Anime</title>
+  <title>Catatan Chord</title>
   <!-- Import Font Anime-Inspired -->
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
   <style>
@@ -44,6 +44,9 @@
       height: 100%;
       background: rgba(0, 0, 0, 0.4); /* Overlay gelap agar teks readable */
       z-index: -1;
+    }
+    body.modal-open {
+      overflow: hidden; /* Cegah scroll saat modal aktif */
     }
     h1 {
       font-family: 'Fredoka One', cursive; /* Font anime kartun */
@@ -114,9 +117,11 @@
       z-index: 1000;
       justify-content: center;
       align-items: center;
+      pointer-events: none; /* Default off */
     }
     .modal.show {
       display: flex;
+      pointer-events: auto; /* Aktif saat show */
     }
     .modal-content {
       background: var(--card);
@@ -129,6 +134,8 @@
       box-shadow: 0 10px 40px var(--shadow);
       width: 100%;
       border: 2px solid var(--border);
+      z-index: 1001; /* Pastikan di atas semuanya */
+      position: relative;
     }
     .modal-header {
       display: flex;
@@ -331,7 +338,7 @@
 
 <!-- PAGE 1 -->
 <div id="pageList" class="fade-in">
-  <h1>🎶 Daftar Lagu 🎶</h1>
+  <h1>🎶 Daftar Lagu Anime-Style 🎶</h1>
   <div style="text-align: right; margin-bottom: 20px;">
     <button onclick="exportSongs()">⬇ Export</button>
     <label for="importFile" style="margin-left: 10px;">
@@ -340,7 +347,7 @@
     <input type="file" id="importFile" onchange="importSongs(event)" style="display: none;" />
   </div>
   <div class="group">
-    <h2>🌸 Ibadah Raya 1</h2>
+    <h2>🌸 JCC</h2>
     <div id="songButtons1"></div>
   </div>
 </div>
@@ -375,277 +382,102 @@
 </div>
 
 <script type="module">
-/* ================= FIREBASE ================= */
+/* ===============================
+   IMPORT FIREBASE (CDN)
+================================ */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
   getFirestore,
-  doc,
-  setDoc,
   collection,
-  onSnapshot
+  addDoc,
+  getDocs,
+  doc,
+  updateDoc,
+  deleteDoc,
+  query,
+  orderBy
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+/* ===============================
+   FIREBASE CONFIG
+================================ */
 const firebaseConfig = {
-  apiKey: "AIzaSyAQkOLTNjw8At2BFqP7QZLDgFQj_2EPydM",
-  authDomain: "catatanchordjkimcc.firebaseapp.com",
-  projectId: "catatanchordjkimcc",
-  storageBucket: "catatanchordjkimcc.firebasestorage.app",
-  messagingSenderId: "833601237686",
-  appId: "1:833601237686:web:7225febab03f7e35072c17"
+  apiKey: "AIzaSyC1pwhv_VtD1Zkc61kBntnBZWlCLeFSod0",
+  authDomain: "catatan-chord-7fa25.firebaseapp.com",
+  projectId: "catatan-chord-7fa25",
+  storageBucket: "catatan-chord-7fa25.firebasestorage.app",
+  messagingSenderId: "559468614740",
+  appId: "1:559468614740:web:dd6f9b99e314037524c9c1"
 };
 
+/* ===============================
+   INIT APP & DATABASE
+================================ */
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-/* ================= KONFIG ================= */
-const TOTAL_PER_GROUP = 10;
-const TOTAL_GROUP = 3;
-const TOTAL = TOTAL_PER_GROUP * TOTAL_GROUP;
-const KEYS = ['C','C#','D','D#','E','F','F#','G','G#','A','Bb','B'];
+/* ===============================
+   COLLECTION
+================================ */
+const chordRef = collection(db, "chords");
 
-/* ================= STATE ================= */
-let songs = Array(TOTAL).fill('');
-let titles = Array.from({ length: TOTAL }, (_, i) => `Lagu ${i % TOTAL_PER_GROUP + 1}`);
-
-let current = 0;
-let transposeStep = 0;
-let fontSize = 18;
-
-/* scroll */
-let lastScrollY = 0;
-
-/* swipe */
-let touchStartX = 0;
-let touchEndX = 0;
-let isAnimating = false;
-
-/* ================= FIRESTORE ================= */
-onSnapshot(collection(db, "songs"), snap => {
-  snap.forEach(d => {
-    const i = parseInt(d.id.replace("song_", ""));
-    if (!isNaN(i)) {
-      songs[i] = d.data().content || '';
-      titles[i] = d.data().title || titles[i];
-    }
-  });
-  init();
-});
-
-/* ================= INIT ================= */
-function init() {
-  renderGroup('songButtons1', 0, TOTAL_PER_GROUP);
-  renderGroup('songButtons2', TOTAL_PER_GROUP, TOTAL_PER_GROUP * 2);
-  renderGroup('songButtons3', TOTAL_PER_GROUP * 2, TOTAL_PER_GROUP * 3);
-}
-
-/* ================= LIST ================= */
-function renderGroup(containerId, start, end) {
-  const box = document.getElementById(containerId);
-  box.innerHTML = '';
-
-  for (let i = start; i < end; i++) {
-    const item = document.createElement('div');
-    item.className = 'song-item';
-    item.onclick = () => viewSong(i);
-
-    item.innerHTML = `
-      <span class="song-title">${titles[i]}</span>
-      <div class="menu">
-        <button class="menu-btn" onclick="event.stopPropagation(); toggleMenu(${i})">⋮</button>
-        <div id="menu-${i}" class="menu-content">
-          <button onclick="event.stopPropagation(); editTitle(${i})">Edit Judul</button>
-          <button onclick="event.stopPropagation(); editSong(${i})">Edit Lagu</button>
-        </div>
-      </div>
-    `;
-    box.appendChild(item);
-  }
-}
-
-function toggleMenu(i) {
-  document.querySelectorAll('.menu-content').forEach(m => m.style.display = 'none');
-  document.getElementById(`menu-${i}`).style.display = 'block';
-}
-
-/* ================= VIEW ================= */
-function viewSong(i) {
-  lastScrollY = window.scrollY;
-
-  current = i;
-  transposeStep = 0;
-
-  document.getElementById('pageList').classList.add('hidden');
-  document.getElementById('pageEditor').classList.remove('hidden');
-
-  animateSongChange(0);
-}
-
-/* ================= BACK ================= */
-function backToList() {
-  document.getElementById('pageEditor').classList.add('hidden');
-  document.getElementById('pageList').classList.remove('hidden');
-
-  requestAnimationFrame(() => {
-    window.scrollTo(0, lastScrollY);
+/* ===============================
+   CREATE / SAVE CHORD
+================================ */
+async function saveChord(title, content) {
+  await addDoc(chordRef, {
+    title: title,
+    content: content,
+    createdAt: Date.now()
   });
 }
 
-/* ================= EDIT ================= */
-async function editTitle(i) {
-  const t = prompt('Judul lagu:', titles[i]);
-  if (!t) return;
+/* ===============================
+   GET ALL CHORDS
+================================ */
+async function loadChords() {
+  const q = query(chordRef, orderBy("createdAt", "desc"));
+  const snapshot = await getDocs(q);
 
-  titles[i] = t;
-  await setDoc(doc(db, "songs", `song_${i}`), {
-    title: t,
-    content: songs[i] || ''
-  }, { merge: true });
-
-  init();
-}
-
-function editSong(i) {
-  current = i;
-  document.getElementById('editTitle').innerText = titles[i];
-  document.getElementById('editor').value = songs[i];
-  document.getElementById('editModal').classList.add('show');
-}
-
-function closeModal(id) {
-  document.getElementById(id).classList.remove('show');
-}
-
-async function saveSong() {
-  await setDoc(doc(db, "songs", `song_${current}`), {
-    title: titles[current],
-    content: document.getElementById('editor').value
-  });
-  closeModal('editModal');
-}
-
-/* ================= TOOLS ================= */
-function transpose(step) {
-  transposeStep += step;
-  render();
-}
-
-function zoom(step) {
-  fontSize = Math.min(34, Math.max(12, fontSize + step));
-  render();
-}
-
-function transposeChord(ch) {
-  const base = ch.match(/^[A-G][#b]?/);
-  if (!base) return ch;
-
-  const i = KEYS.indexOf(base[0]);
-  if (i < 0) return ch;
-
-  return ch.replace(base[0],
-    KEYS[(i + transposeStep + KEYS.length) % KEYS.length]
-  );
-}
-
-/* ================= RENDER ================= */
-function render() {
-  const viewer = document.getElementById('viewer');
-  viewer.style.fontSize = fontSize + 'px';
-
-  const chordRegex =
-    /(?<!\S)([A-G](?:#|b)?(?:m|maj|min|sus|dim|aug|add)?\d*(?:\/[A-G](?:#|b)?\d*)?)(?!\S)/g;
-
-  viewer.innerHTML = (songs[current] || '')
-    .split('\n')
-    .map(line => {
-      if (/^.+\s:\s*$/.test(line)) {
-        return `<div class="section">${line}</div>`;
-      }
-      return line.replace(chordRegex, c =>
-        `<span class="chord">${transposeChord(c)}</span>`
-      );
-    })
-    .join('<br>');
-
-  document.getElementById('songTitle').innerText = titles[current];
-}
-
-/* ================= SLIDE ANIMATION ================= */
-function animateSongChange(direction) {
-  if (isAnimating) return;
-  isAnimating = true;
-
-  const viewer = document.getElementById('viewer');
-  const title = document.getElementById('songTitle');
-
-  viewer.style.transition = 'none';
-  title.style.transition = 'none';
-
-  viewer.style.transform = `translateX(${direction * 40}px)`;
-  title.style.transform = `translateX(${direction * 40}px)`;
-
-  render();
-
-  requestAnimationFrame(() => {
-    viewer.style.transition = 'transform 0.35s ease, opacity 0.35s ease';
-    title.style.transition = 'transform 0.35s ease, opacity 0.35s ease';
-
-    viewer.style.transform = 'translateX(0)';
-    title.style.transform = 'translateX(0)';
-    viewer.style.opacity = '1';
-    title.style.opacity = '1';
-
-    setTimeout(() => isAnimating = false, 350);
+  const data = [];
+  snapshot.forEach(doc => {
+    data.push({
+      id: doc.id,
+      ...doc.data()
+    });
   });
 
-  window.scrollTo(0, 0);
+  return data;
 }
 
-/* ================= NEXT / PREV ================= */
-function nextSong() {
-  if (current < TOTAL - 1) {
-    current++;
-    transposeStep = 0;
-    animateSongChange(-1);
-  }
+/* ===============================
+   UPDATE CHORD
+================================ */
+async function updateChord(id, title, content) {
+  const chordDoc = doc(db, "chords", id);
+  await updateDoc(chordDoc, {
+    title: title,
+    content: content
+  });
 }
 
-function prevSong() {
-  if (current > 0) {
-    current--;
-    transposeStep = 0;
-    animateSongChange(1);
-  }
+/* ===============================
+   DELETE CHORD
+================================ */
+async function deleteChord(id) {
+  await deleteDoc(doc(db, "chords", id));
 }
 
-/* ================= SWIPE ================= */
-const editorPage = document.getElementById('pageEditor');
+/* ===============================
+   EXPORT KE WINDOW
+   (BIAR BISA DIPANGGIL HTML)
+================================ */
+window.saveChord = saveChord;
+window.loadChords = loadChords;
+window.updateChord = updateChord;
+window.deleteChord = deleteChord;
 
-editorPage.addEventListener('touchstart', e => {
-  if (e.touches.length === 1) {
-    touchStartX = e.touches[0].clientX;
-  }
-});
-
-editorPage.addEventListener('touchend', e => {
-  touchEndX = e.changedTouches[0].clientX;
-  const diff = touchStartX - touchEndX;
-  const threshold = 70;
-
-  if (Math.abs(diff) < threshold) return;
-
-  diff > 0 ? nextSong() : prevSong();
-});
-
-/* ================= GLOBAL ================= */
-window.transpose = transpose;
-window.zoom = zoom;
-window.backToList = backToList;
-window.viewSong = viewSong;
-window.editSong = editSong;
-window.toggleMenu = toggleMenu;
-window.closeModal = closeModal;
-window.saveSong = saveSong;
-window.editTitle = editTitle;
+console.log("🔥 Firebase siap dipakai");
 </script>
 
 </body>
